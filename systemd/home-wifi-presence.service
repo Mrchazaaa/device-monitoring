@@ -1,0 +1,15 @@
+[Unit]
+Description=Home Wi-Fi Presence Dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/pi/home-automation
+EnvironmentFile=/home/pi/home-automation/.env
+ExecStart=/home/pi/home-automation/.venv/bin/uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

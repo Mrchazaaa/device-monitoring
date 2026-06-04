@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Home Wi-Fi Presence</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main class="page">
+      <header class="header">
+        <div>
+          <h1>Home Wi-Fi Presence</h1>
+          <p id="device-summary">{{ devices | selectattr("online") | list | length }} online · {{ devices | length }} known</p>
+        </div>
+        <button type="button" id="refresh-dashboard">Refresh</button>
+      </header>
+
+
+      <section class="panel timeline-panel">
+        <div class="panel-heading">
+          <h2>Presence Timeline</h2>
+          <label class="range-control">
+            <span>Range</span>
+            <select id="timeline-range">
+              <option value="1">1 hour</option>
+              <option value="6">6 hours</option>
+              <option value="24" selected>24 hours</option>
+              <option value="168">7 days</option>
+              <option value="720">30 days</option>
+            </select>
+          </label>
+        </div>
+        <div class="timeline-layout">
+          <div class="timeline-chart-wrap">
+            <canvas id="presence-chart" height="420"></canvas>
+            <div id="timeline-empty" class="empty timeline-empty" hidden>No timeline data for the selected range.</div>
+          </div>
+          <aside class="device-filter" aria-label="Timeline devices">
+            <div class="filter-actions">
+              <button type="button" id="select-all-devices">All</button>
+              <button type="button" id="select-no-devices">None</button>
+            </div>
+            <div id="timeline-devices" class="device-checks"></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Devices</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Name</th>
+                <th>IP</th>
+                <th>MAC</th>
+                <th>Vendor</th>
+                <th>Last Seen</th>
+                <th>Label</th>
+              </tr>
+            </thead>
+            <tbody id="devices-body">
+              {% for device in devices %}
+              <tr>
+                <td>
+                  <span class="status {{ 'online' if device.online else 'offline' }}">
+                    {{ 'Online' if device.online else 'Offline' }}
+                  </span>
+                </td>
+                <td>
+                  <span class="name-stack">
+                    <span>{{ device.display_name }}</span>
+                    {% if device.machine_name %}
+                    <span class="machine-name">Machine: {{ device.machine_name }}</span>
+                    {% endif %}
+                  </span>
+                </td>
+                <td>{{ device.ip or '-' }}</td>
+                <td><code>{{ device.mac }}</code></td>
+                <td>{{ device.vendor or '-' }}</td>
+                <td class="local-time" data-timestamp="{{ device.last_seen.isoformat() }}">{{ device.last_seen.isoformat() }}</td>
+                <td>
+                  <form method="post" action="/devices/{{ device.mac }}/label" class="label-form">
+                    <input name="label" value="{{ device.label or '' }}" placeholder="Friendly name">
+                    <button type="submit">Save</button>
+                  </form>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="7" class="empty">No devices recorded yet.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Recent Activity</h2>
+        <ol class="activity" id="activity-list">
+          {% for event in activity %}
+          <li>
+            <span class="status {{ event.event_type }}">{{ event.event_type | title }}</span>
+            <strong class="name-stack">
+              <span>{{ event.display_name }}</span>
+              {% if event.machine_name %}
+              <span class="machine-name">Machine: {{ event.machine_name }}</span>
+              {% endif %}
+            </strong>
+            <time class="local-time" datetime="{{ event.happened_at.isoformat() }}" data-timestamp="{{ event.happened_at.isoformat() }}">{{ event.happened_at.isoformat() }}</time>
+          </li>
+          {% else %}
+          <li class="empty">No activity recorded yet.</li>
+          {% endfor %}
+        </ol>
+      </section>
+    </main>
+
+    <script>
+      const chart = document.getElementById("presence-chart");
+      const chartWrap = chart.parentElement;
+      const ctx = chart.getContext("2d");
+      const rangeSelect = document.getElementById("timeline-range");
+      const devicesContainer = document.getElementById("timeline-devices");
+      const emptyState = document.getElementById("timeline-empty");
+      const selectedDevices = new Set();
+      const refreshButton = document.getElementById("refresh-dashboard");
+      const deviceSummary = document.getElementById("device-summary");
+      const devicesBody = document.getElementById("devices-body");
+      const activityList = document.getElementById("activity-list");
+      let timeline = null;
+      let hasInitializedSelection = false;
+
+      function parseTime(value) {
+        return new Date(value).getTime();
+      }
+
+      function colorFor(index) {
+        const colors = ["#2459a6", "#16805a", "#a45512", "#7c3aed", "#bf2f45", "#087990", "#6b5b2a", "#2f6f31"];
+        return colors[index % colors.length];
+      }
+
+      function formatDateTime(value) {
+        if (!value) return "-";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value.slice(0, 19).replace("T", " " );
+        const pad = (part) => String(part).padStart(2, "0");
+        return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate()) + " " + pad(date.getHours()) + ":" + pad(date.getMinutes()) + ":" + pad(date.getSeconds());
+      }
+
+      function formatExistingTimestamps() {
+        document.querySelectorAll("[data-timestamp]").forEach((element) => {
+          element.textContent = formatDateTime(element.dataset.timestamp);
+        });
+      }
+
+      function appendName(parent, item) {
+        const stack = document.createElement("span");
+        stack.className = "name-stack";
+        const display = document.createElement("span");
+        display.textContent = item.display_name;
+        stack.append(display);
+        if (item.machine_name) {
+          const machine = document.createElement("span");
+          machine.className = "machine-name";
+          machine.textContent = "Machine: " + item.machine_name;
+          stack.append(machine);
+        }
+        parent.append(stack);
+      }
+
+      function renderDevices(devices) {
+        devicesBody.innerHTML = "";
+        const onlineCount = devices.filter((device) => device.online).length;
+        deviceSummary.textContent = onlineCount + " online · " + devices.length + " known";
+        if (devices.length === 0) {
+          const row = document.createElement("tr");
+          const cell = document.createElement("td");
+          cell.colSpan = 7;
+          cell.className = "empty";
+          cell.textContent = "No devices recorded yet.";
+          row.append(cell);
+          devicesBody.append(row);
+          return;
+        }
+        devices.forEach((device) => {
+          const row = document.createElement("tr");
+          const statusCell = document.createElement("td");
+          const status = document.createElement("span");
+          status.className = "status " + (device.online ? "online" : "offline");
+          status.textContent = device.online ? "Online" : "Offline";
+          statusCell.append(status);
+          const nameCell = document.createElement("td");
+          appendName(nameCell, device);
+          const ipCell = document.createElement("td");
+          ipCell.textContent = device.ip || "-";
+          const macCell = document.createElement("td");
+          const code = document.createElement("code");
+          code.textContent = device.mac;
+          macCell.append(code);
+          const vendorCell = document.createElement("td");
+          vendorCell.textContent = device.vendor || "-";
+          const lastSeenCell = document.createElement("td");
+          lastSeenCell.textContent = formatDateTime(device.last_seen);
+          const labelCell = document.createElement("td");
+          const form = document.createElement("form");
+          form.method = "post";
+          form.action = "/devices/" + encodeURIComponent(device.mac) + "/label";
+          form.className = "label-form";
+          const input = document.createElement("input");
+          input.name = "label";
+          input.value = device.label || "";
+          input.placeholder = "Friendly name";
+          const button = document.createElement("button");
+          button.type = "submit";
+          button.textContent = "Save";
+          form.append(input, button);
+          labelCell.append(form);
+          row.append(statusCell, nameCell, ipCell, macCell, vendorCell, lastSeenCell, labelCell);
+          devicesBody.append(row);
+        });
+      }
+
+      function renderActivity(activity) {
+        activityList.innerHTML = "";
+        if (activity.length === 0) {
+          const item = document.createElement("li");
+          item.className = "empty";
+          item.textContent = "No activity recorded yet.";
+          activityList.append(item);
+          return;
+        }
+        activity.forEach((event) => {
+          const item = document.createElement("li");
+          const status = document.createElement("span");
+          status.className = "status " + event.event_type;
+          status.textContent = event.event_type.charAt(0).toUpperCase() + event.event_type.slice(1);
+          const name = document.createElement("strong");
+          name.className = "name-stack";
+          appendName(name, event);
+          const time = document.createElement("time");
+          time.dateTime = event.happened_at;
+          time.textContent = formatDateTime(event.happened_at);
+          item.append(status, name, time);
+          activityList.append(item);
+        });
+      }
+
+      function fitCanvas() {
+        const ratio = window.devicePixelRatio || 1;
+        const rect = chartWrap.getBoundingClientRect();
+        chart.width = Math.max(320, Math.floor(rect.width * ratio));
+        chart.height = Math.floor(420 * ratio);
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      }
+
+      function formatTick(ms, totalHours) {
+        const date = new Date(ms);
+        if (totalHours <= 24) {
+          return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        }
+        return date.toLocaleDateString([], { month: "short", day: "numeric" });
+      }
+
+      function deviceSegments(device, events, since, until) {
+        const points = events
+          .filter((event) => event.mac === device.mac)
+          .map((event) => ({ at: parseTime(event.happened_at), online: event.event_type === "online" }));
+        let online = device.initial_online;
+        let cursor = since;
+        const segments = [];
+        for (const point of points) {
+          if (point.at > cursor) {
+            segments.push({ start: cursor, end: point.at, online });
+          }
+          online = point.online;
+          cursor = point.at;
+        }
+        segments.push({ start: cursor, end: until, online });
+        return segments.filter((segment) => segment.end > since && segment.start < until);
+      }
+
+      function renderDeviceChecks() {
+        devicesContainer.innerHTML = "";
+        if (!hasInitializedSelection) {
+          timeline.devices.slice(0, 8).forEach((device) => selectedDevices.add(device.mac));
+          hasInitializedSelection = true;
+        }
+        timeline.devices.forEach((device, index) => {
+          const label = document.createElement("label");
+          label.className = "device-check";
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.value = device.mac;
+          input.checked = selectedDevices.has(device.mac);
+          input.addEventListener("change", () => {
+            if (input.checked) {
+              selectedDevices.add(device.mac);
+            } else {
+              selectedDevices.delete(device.mac);
+            }
+            drawTimeline();
+          });
+          const swatch = document.createElement("span");
+          swatch.className = "device-swatch";
+          swatch.style.background = colorFor(index);
+          const name = document.createElement("span");
+          name.className = "check-name";
+          name.textContent = device.machine_name ? device.display_name + " (" + device.machine_name + ")" : device.display_name;
+          name.title = device.machine_name ? device.display_name + " - Machine: " + device.machine_name : device.display_name;
+          label.append(input, swatch, name);
+          devicesContainer.append(label);
+        });
+      }
+
+      function drawTimeline() {
+        if (!timeline) return;
+        fitCanvas();
+        const width = chartWrap.getBoundingClientRect().width;
+        const height = 420;
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+
+        const selected = timeline.devices.filter((device) => selectedDevices.has(device.mac));
+        emptyState.hidden = selected.length > 0;
+        if (selected.length === 0) return;
+
+        const since = parseTime(timeline.range.since);
+        const until = parseTime(timeline.range.until);
+        const totalHours = (until - since) / 36e5;
+        const left = 128;
+        const right = 18;
+        const top = 24;
+        const bottom = 46;
+        const plotWidth = width - left - right;
+        const rowHeight = Math.max(34, (height - top - bottom) / selected.length);
+
+        ctx.strokeStyle = "#dce3ea";
+        ctx.lineWidth = 1;
+        ctx.fillStyle = "#5d6d7e";
+        ctx.font = "12px Inter, system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        for (let i = 0; i <= 4; i++) {
+          const x = left + (plotWidth * i) / 4;
+          ctx.beginPath();
+          ctx.moveTo(x, top);
+          ctx.lineTo(x, height - bottom);
+          ctx.stroke();
+          const tick = since + ((until - since) * i) / 4;
+          ctx.fillText(formatTick(tick, totalHours), x, height - bottom + 14);
+        }
+
+        selected.forEach((device, selectedIndex) => {
+          const deviceIndex = timeline.devices.findIndex((item) => item.mac === device.mac);
+          const y = top + selectedIndex * rowHeight + rowHeight / 2;
+          const onlineY = y - 8;
+          const offlineY = y + 8;
+          const color = colorFor(deviceIndex);
+          ctx.textAlign = "right";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = "#17202a";
+          const label = device.display_name.length > 18 ? `${device.display_name.slice(0, 17)}…` : device.display_name;
+          ctx.fillText(label, left - 12, y);
+          ctx.strokeStyle = "#edf1f5";
+          ctx.beginPath();
+          ctx.moveTo(left, y);
+          ctx.lineTo(width - right, y);
+          ctx.stroke();
+
+          const segments = deviceSegments(device, timeline.events, since, until);
+          segments.forEach((segment) => {
+            const x1 = left + ((Math.max(segment.start, since) - since) / (until - since)) * plotWidth;
+            const x2 = left + ((Math.min(segment.end, until) - since) / (until - since)) * plotWidth;
+            ctx.strokeStyle = segment.online ? color : "#aab4bf";
+            ctx.lineWidth = segment.online ? 4 : 2;
+            ctx.beginPath();
+            ctx.moveTo(x1, segment.online ? onlineY : offlineY);
+            ctx.lineTo(x2, segment.online ? onlineY : offlineY);
+            ctx.stroke();
+          });
+        });
+      }
+
+      async function loadTimeline() {
+        const response = await fetch("/api/presence-history?hours=" + encodeURIComponent(rangeSelect.value));
+        timeline = await response.json();
+        selectedDevices.forEach((mac) => {
+          if (!timeline.devices.some((device) => device.mac === mac)) {
+            selectedDevices.delete(mac);
+          }
+        });
+        renderDeviceChecks();
+        drawTimeline();
+      }
+
+      async function refreshDashboard() {
+        refreshButton.disabled = true;
+        const originalText = refreshButton.textContent;
+        refreshButton.textContent = "Scanning...";
+        try {
+          const scanResponse = await fetch("/api/scan", { method: "POST" });
+          if (!scanResponse.ok) {
+            throw new Error("Scan failed");
+          }
+          const [devicesResponse, activityResponse] = await Promise.all([
+            fetch("/api/devices"),
+            fetch("/api/activity"),
+          ]);
+          const devicesPayload = await devicesResponse.json();
+          const activityPayload = await activityResponse.json();
+          renderDevices(devicesPayload.devices);
+          renderActivity(activityPayload.activity);
+          await loadTimeline();
+        } catch (error) {
+          console.error(error);
+        } finally {
+          refreshButton.textContent = originalText;
+          refreshButton.disabled = false;
+        }
+      }
+
+      refreshButton.addEventListener("click", refreshDashboard);
+      rangeSelect.addEventListener("change", loadTimeline);
+      document.getElementById("select-all-devices").addEventListener("click", () => {
+        timeline.devices.forEach((device) => selectedDevices.add(device.mac));
+        renderDeviceChecks();
+        drawTimeline();
+      });
+      document.getElementById("select-no-devices").addEventListener("click", () => {
+        selectedDevices.clear();
+        renderDeviceChecks();
+        drawTimeline();
+      });
+      window.addEventListener("resize", drawTimeline);
+      formatExistingTimestamps();
+      loadTimeline();
+    </script>
+  </body>
+</html>
