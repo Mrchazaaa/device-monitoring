@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
+from urllib.parse import urlparse
 
 from app.models import ActivityEvent, DeviceStatus, ScanDevice
 
@@ -18,10 +19,34 @@ def parse_dt(value: str) -> datetime:
 
 
 class PresenceStore:
-    def __init__(self, database_path: Path | str):
-        self.database_path = Path(database_path)
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+    def __init__(self, database: Path | str):
+        self.database_path = self._sqlite_path(database)
+        Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
         self.migrate()
+
+    @staticmethod
+    def _sqlite_path(database: Path | str) -> str:
+        if isinstance(database, Path):
+            return str(database)
+
+        database_value = str(database)
+        parsed = urlparse(database_value)
+        if parsed.scheme != "sqlite":
+            if parsed.scheme:
+                raise ValueError(f"Unsupported database scheme: {parsed.scheme}")
+            return database_value
+
+        if parsed.netloc:
+            raise ValueError("SQLite connection strings must not include a host")
+        if parsed.params or parsed.query or parsed.fragment:
+            raise ValueError("SQLite connection string parameters are not supported")
+        if parsed.path == "/:memory:":
+            raise ValueError("In-memory SQLite databases are not supported")
+        if not parsed.path:
+            raise ValueError("SQLite connection string must include a database path")
+        if parsed.path.startswith("//"):
+            return parsed.path[1:]
+        return parsed.path.lstrip("/")
 
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:

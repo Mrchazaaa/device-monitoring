@@ -16,7 +16,7 @@ from app.service import ScannerService
 
 load_dotenv()
 settings = Settings.from_env()
-store = PresenceStore(settings.database_path)
+store = PresenceStore(settings.database_url)
 scanner_service = ScannerService(
     store=store,
     scanner=ArpScanner(settings.network_interface, settings.scan_cidr),

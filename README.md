@@ -39,7 +39,7 @@ Environment variables:
 | --- | --- | --- |
 | `APP_HOST` | `0.0.0.0` | Host used by the systemd service. |
 | `APP_PORT` | `8000` | HTTP port used by the systemd service. |
-| `DATABASE_PATH` | `./data/presence.db` | SQLite database path. |
+| `DATABASE_URL` | `sqlite:///./data/presence.db` | SQLite database connection string. `DATABASE_PATH` is still supported as a fallback. |
 | `SCAN_INTERVAL_SECONDS` | `60` | Seconds between scans. |
 | `OFFLINE_AFTER_MISSED_SCANS` | `2` | Missed scans before marking a device offline. |
 | `NETWORK_INTERFACE` | auto-detect | Interface passed to `arp-scan`, for example `wlan0` or `eth0`. |

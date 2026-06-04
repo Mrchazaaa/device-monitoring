@@ -60,3 +60,31 @@ def test_presence_timeline_includes_initial_state_and_range_events(tmp_path):
     assert timeline["devices"][0]["mac"] == "aa:bb:cc:dd:ee:ff"
     assert timeline["devices"][0]["initial_online"] is False
     assert [event["event_type"] for event in timeline["events"]] == ["offline", "online"]
+
+
+def test_presence_store_accepts_sqlite_connection_string(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'presence.db'}"
+    store = PresenceStore(database_url)
+
+    store.record_scan([ScanDevice(mac="aa:bb:cc:dd:ee:ff")], offline_after_missed_scans=2, now=at(0))
+
+    [status] = store.list_devices()
+    assert status.mac == "aa:bb:cc:dd:ee:ff"
+
+
+def test_presence_store_rejects_unsupported_connection_string():
+    try:
+        PresenceStore("postgresql://user:password@localhost/presence")
+    except ValueError as exc:
+        assert "Unsupported database scheme: postgresql" in str(exc)
+    else:
+        raise AssertionError("Expected unsupported database scheme to be rejected")
+
+
+def test_presence_store_rejects_in_memory_sqlite_connection_string():
+    try:
+        PresenceStore("sqlite:///:memory:")
+    except ValueError as exc:
+        assert "In-memory SQLite databases are not supported" in str(exc)
+    else:
+        raise AssertionError("Expected in-memory SQLite to be rejected")
