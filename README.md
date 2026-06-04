@@ -6,6 +6,15 @@ A small Raspberry Pi service that scans your home LAN with `arp-scan`, stores de
 
 ## Quick Start
 
+For a fast development setup, run:
+
+```bash
+scripts/setup-dev.sh
+scripts/dev-server.sh
+```
+
+Or run the setup steps manually:
+
 ```bash
 sudo apt update
 sudo apt install -y arp-scan python3-venv
@@ -64,7 +73,6 @@ If scanning still fails, set `NETWORK_INTERFACE` in `.env` to the LAN interface 
 ## Development
 
 ```bash
-. .venv/bin/activate
-pytest
-uvicorn app.main:app --reload
+scripts/test.sh
+scripts/dev-server.sh
 ```
