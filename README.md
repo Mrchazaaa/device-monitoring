@@ -1,5 +1,7 @@
 # Home Wi-Fi Presence
 
+[![Tests](https://github.com/mrchazaaa/device-monitoring/actions/workflows/tests.yml/badge.svg)](https://github.com/mrchazaaa/device-monitoring/actions/workflows/tests.yml)
+
 A small Raspberry Pi service that scans your home LAN with `arp-scan`, stores device presence in SQLite, and exposes a local dashboard.
 
 ## Quick Start
