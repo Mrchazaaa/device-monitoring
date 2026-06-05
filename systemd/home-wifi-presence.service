@@ -2,6 +2,8 @@
 Description=Home Wi-Fi Presence Dashboard
 After=network-online.target
 Wants=network-online.target
+# Uncomment when DATABASE_URL points to a separately mounted drive.
+# RequiresMountsFor=/mnt/ssd/device-monitoring
 
 [Service]
 Type=simple
