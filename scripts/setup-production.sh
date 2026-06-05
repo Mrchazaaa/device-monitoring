@@ -124,7 +124,8 @@ EOF_UNIT
 "${SUDO[@]}" systemctl daemon-reload
 
 if [[ "$START_SERVICE" -eq 1 ]]; then
-  "${SUDO[@]}" systemctl enable --now "$SERVICE_NAME.service"
+  "${SUDO[@]}" systemctl enable "$SERVICE_NAME.service"
+  "${SUDO[@]}" systemctl restart "$SERVICE_NAME.service"
   "${SUDO[@]}" systemctl --no-pager --full status "$SERVICE_NAME.service"
 else
   "${SUDO[@]}" systemctl enable "$SERVICE_NAME.service"

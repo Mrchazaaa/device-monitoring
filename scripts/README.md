@@ -6,7 +6,7 @@ Run these scripts from the repository checkout. They use `.venv` by default; set
 | Script | Purpose |
 | --- | --- |
 | `setup-dev.sh` | Creates the virtual environment, installs Python requirements and missing `apt` packages, copies `.env.example` to `.env` when needed, and creates `data/`. Pass `--skip-system-packages` to skip `apt` installs. |
-| `setup-production.sh` | Prepares the production environment, installs a path-aware systemd service, and enables and starts it. Pass `--no-start` to install without starting or `--skip-system-packages` to skip `apt` installs. |
+| `setup-production.sh` | Prepares the production environment, installs a path-aware systemd service, and enables and restarts it so rerunning the script redeploys the application. Pass `--no-start` to install without starting or `--skip-system-packages` to skip `apt` installs. |
 | `dev-server.sh` | Loads `.env` and starts the app with Uvicorn reload enabled. Uses `APP_HOST` and `APP_PORT`, defaulting to `0.0.0.0:8000`. |
 | `test.sh` | Runs pytest in the configured virtual environment, forwarding all arguments to pytest. |
 
