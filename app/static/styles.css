@@ -246,7 +246,8 @@ input {
 button {
   border: 0;
   border-radius: 6px;
-  background: #2459a6;
+  /*background: #2459a6;*/
+  background: red;
   color: white;
   padding: 8px 10px;
   font: inherit;
