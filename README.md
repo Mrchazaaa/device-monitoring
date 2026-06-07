@@ -40,7 +40,7 @@ Environment variables:
 | `APP_HOST` | `0.0.0.0` | Host used by the systemd service. |
 | `APP_PORT` | `8000` | HTTP port used by the systemd service. |
 | `APP_LOG_LEVEL` | `DEBUG` | Log level for `app.*` loggers: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. |
-| `DATABASE_URL` | `sqlite:///./data/presence.db` | SQLite database connection string. `DATABASE_PATH` is still supported as a fallback. |
+| `DATABASE_URL` | `sqlite:///./data/presence.db` | SQLite or PostgreSQL connection string. `DATABASE_PATH` is still supported as a SQLite fallback. |
 | `SCAN_INTERVAL_SECONDS` | `60` | Seconds between scans. |
 | `OFFLINE_AFTER_MISSED_SCANS` | `2` | Missed scans before marking a device offline. |
 | `NETWORK_INTERFACE` | auto-detect | Interface passed to `arp-scan`, for example `wlan0` or `eth0`. |
@@ -58,6 +58,14 @@ When `LOKI_URL` is configured, application and Uvicorn logs are sent to Loki on 
 LOKI_URL=http://loki:3100/loki/api/v1/push
 LOKI_LABELS='{"application":"home-wifi-presence","environment":"production"}'
 ```
+
+PostgreSQL is selected with a standard connection URL. The database user must be able to create tables and indexes on first startup:
+
+```bash
+DATABASE_URL=postgresql://presence:secret@db.example.com/presence
+```
+
+Existing SQLite data is not automatically copied to PostgreSQL.
 
 ## Running as a Service
 

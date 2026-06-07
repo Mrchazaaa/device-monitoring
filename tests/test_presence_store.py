@@ -74,9 +74,9 @@ def test_presence_store_accepts_sqlite_connection_string(tmp_path):
 
 def test_presence_store_rejects_unsupported_connection_string():
     try:
-        PresenceStore("postgresql://user:password@localhost/presence")
+        PresenceStore("mysql://user:password@localhost/presence")
     except ValueError as exc:
-        assert "Unsupported database scheme: postgresql" in str(exc)
+        assert "Unsupported database scheme: mysql" in str(exc)
     else:
         raise AssertionError("Expected unsupported database scheme to be rejected")
 
