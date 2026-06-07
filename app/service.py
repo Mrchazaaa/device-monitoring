@@ -27,9 +27,11 @@ class ScannerService:
 
     def start(self) -> None:
         if self._task is None:
+            logger.debug("Starting scanner service with %ss interval", self.interval_seconds)
             self._task = asyncio.create_task(self._run())
 
     async def stop(self) -> None:
+        logger.debug("Stopping scanner service")
         self._stopping.set()
         if self._task is not None:
             await self._task
@@ -38,6 +40,7 @@ class ScannerService:
         async with self._scan_lock:
             devices = await asyncio.to_thread(self.scanner.scan)
             self.store.record_scan(devices, self.offline_after_missed_scans)
+            logger.debug("Device scan completed: %d devices found", len(devices))
 
     async def _run(self) -> None:
         while not self._stopping.is_set():

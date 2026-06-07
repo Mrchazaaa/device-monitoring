@@ -39,11 +39,25 @@ Environment variables:
 | --- | --- | --- |
 | `APP_HOST` | `0.0.0.0` | Host used by the systemd service. |
 | `APP_PORT` | `8000` | HTTP port used by the systemd service. |
+| `APP_LOG_LEVEL` | `DEBUG` | Log level for `app.*` loggers: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. |
 | `DATABASE_URL` | `sqlite:///./data/presence.db` | SQLite database connection string. `DATABASE_PATH` is still supported as a fallback. |
 | `SCAN_INTERVAL_SECONDS` | `60` | Seconds between scans. |
 | `OFFLINE_AFTER_MISSED_SCANS` | `2` | Missed scans before marking a device offline. |
 | `NETWORK_INTERFACE` | auto-detect | Interface passed to `arp-scan`, for example `wlan0` or `eth0`. |
 | `SCAN_CIDR` | auto-detect | Optional subnet override, for example `192.168.1.0/24`. |
+| `LOKI_URL` | disabled | Full Loki push endpoint, for example `http://loki:3100/loki/api/v1/push`. |
+| `LOKI_LABELS` | `{"application":"home-wifi-presence"}` | JSON object of static labels added to every Loki stream. |
+| `LOKI_USERNAME` | unset | Optional username for Loki basic authentication. |
+| `LOKI_PASSWORD` | unset | Optional password for Loki basic authentication. |
+
+Application debug logs are enabled by default without enabling debug logs from Uvicorn or other dependencies. Set `APP_LOG_LEVEL` to a higher level to reduce application log output.
+
+When `LOKI_URL` is configured, application and Uvicorn logs are sent to Loki on a background thread while continuing to use the existing console and systemd journal output. Each Loki stream also receives dynamic `severity` and `logger` labels. For example:
+
+```bash
+LOKI_URL=http://loki:3100/loki/api/v1/push
+LOKI_LABELS='{"application":"home-wifi-presence","environment":"production"}'
+```
 
 ## Running as a Service
 

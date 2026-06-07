@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import ipaddress
+import logging
 import re
 import socket
 import subprocess
 
 from app.models import ScanDevice
 
+
+logger = logging.getLogger(__name__)
 
 ARP_SCAN_LINE = re.compile(
     r"^(?P<ip>\d{1,3}(?:\.\d{1,3}){3})\s+"
@@ -73,6 +76,11 @@ class ArpScanner:
         if self.interface:
             command.extend(["--interface", self.interface])
 
+        logger.debug(
+            "Running ARP scan: target=%s interface=%s",
+            target or "localnet",
+            self.interface or "default",
+        )
         result = subprocess.run(
             command,
             check=False,
@@ -82,4 +90,6 @@ class ArpScanner:
         )
         if result.returncode != 0:
             raise ArpScanError(command, result.returncode, result.stderr)
-        return parse_arp_scan_output(result.stdout)
+        devices = parse_arp_scan_output(result.stdout)
+        logger.debug("ARP scan returned %d devices", len(devices))
+        return devices

@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import Settings
 from app.db import PresenceStore, utc_now
+from app.logging_config import configure_loki_logging
 from app.scanner import ArpScanError, ArpScanner
 from app.service import ScannerService
 
@@ -29,11 +30,20 @@ templates = Jinja2Templates(directory="app/templates")
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    loki_listener = configure_loki_logging(
+        url=settings.loki_url,
+        labels=settings.loki_labels,
+        app_log_level=settings.app_log_level,
+        username=settings.loki_username,
+        password=settings.loki_password,
+    )
     scanner_service.start()
     try:
         yield
     finally:
         await scanner_service.stop()
+        if loki_listener is not None:
+            loki_listener.stop()
 
 
 app = FastAPI(title="Home Wi-Fi Presence", lifespan=lifespan)
