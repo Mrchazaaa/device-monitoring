@@ -4,17 +4,19 @@
   "metadata": {
     "name": "device-presence",
     "namespace": "default",
-    "uid": "343780d7-6178-4a3b-a3fa-bed16efb90b8",
-    "resourceVersion": "1781648199507983",
-    "generation": 1,
-    "creationTimestamp": "2026-06-16T22:16:39Z",
+    "uid": "e151ebd2-a53f-442f-b58e-40926a90647a",
+    "resourceVersion": "1781650294199980",
+    "generation": 2,
+    "creationTimestamp": "2026-06-16T22:41:37Z",
     "labels": {
-      "grafana.app/deprecatedInternalID": "4359850636210176"
+      "grafana.app/deprecatedInternalID": "4366133460332544"
     },
     "annotations": {
       "grafana.app/createdBy": "user:bfof6o2xknx8ge",
       "grafana.app/folder": "",
-      "grafana.app/saved-from-ui": "Grafana v13.0.2 (3fcdbc5a)"
+      "grafana.app/saved-from-ui": "Grafana v13.0.2 (3fcdbc5a)",
+      "grafana.app/updatedBy": "user:bfof6o2xknx8ge",
+      "grafana.app/updatedTimestamp": "2026-06-16T22:51:34Z"
     }
   },
   "spec": {
@@ -261,7 +263,7 @@
                     "mode": "absolute",
                     "steps": [
                       {
-                        "value": null,
+                        "value": 0,
                         "color": "red"
                       },
                       {
@@ -283,7 +285,6 @@
                     },
                     "insertNulls": false,
                     "lineWidth": 0,
-                    "mergeValues": true,
                     "spanNulls": true
                   }
                 },
@@ -318,7 +319,7 @@
                         "editorMode": "code",
                         "format": "table",
                         "rawQuery": true,
-                        "rawSql": "SELECT\n  COALESCE(NULLIF(d.label, ''), NULLIF(d.hostname, ''), NULLIF(d.vendor, ''), d.mac) AS device,\n  CASE WHEN d.online THEN 'online' ELSE 'offline' END AS status,\n  d.ip,\n  d.mac,\n  d.vendor,\n  d.last_seen,\n  d.missed_scans\nFROM devices d\nWHERE d.id::text IN (${devices:sqlstring})\nORDER BY d.online DESC, LOWER(COALESCE(NULLIF(d.label, ''), NULLIF(d.hostname, ''), NULLIF(d.vendor, ''), d.mac));",
+                        "rawSql": "SELECT\n  COALESCE(NULLIF(d.label, ''), NULLIF(d.hostname, ''), NULLIF(d.vendor, ''), d.mac) AS device,\n  CASE WHEN d.online THEN 'online' ELSE 'offline' END AS status,\n  COALESCE(latest_event.happened_at, d.first_seen) AS status_since,\n  d.ip,\n  d.mac,\n  d.vendor,\n  d.last_seen,\n  d.missed_scans\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT pe.happened_at\n  FROM presence_events pe\n  WHERE pe.device_id = d.id\n  ORDER BY pe.happened_at DESC, pe.id DESC\n  LIMIT 1\n) latest_event ON TRUE\nWHERE d.id::text IN (${devices:sqlstring})\nORDER BY d.online DESC, LOWER(COALESCE(NULLIF(d.label, ''), NULLIF(d.hostname, ''), NULLIF(d.vendor, ''), d.mac));",
                         "sql": {
                           "columns": [],
                           "groupBy": [],
@@ -410,6 +411,18 @@
                             "type": "value"
                           }
                         ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "status_since"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 188
                       }
                     ]
                   }
@@ -545,7 +558,7 @@
             "spec": {
               "x": 0,
               "y": 19,
-              "width": 14,
+              "width": 24,
               "height": 9,
               "element": {
                 "kind": "ElementReference",
@@ -556,10 +569,10 @@
           {
             "kind": "GridLayoutItem",
             "spec": {
-              "x": 14,
-              "y": 19,
-              "width": 10,
-              "height": 9,
+              "x": 0,
+              "y": 28,
+              "width": 24,
+              "height": 10,
               "element": {
                 "kind": "ElementReference",
                 "name": "panel-6"
