@@ -1,0 +1,656 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "device-presence",
+    "namespace": "default",
+    "uid": "343780d7-6178-4a3b-a3fa-bed16efb90b8",
+    "resourceVersion": "1781648199507983",
+    "generation": 1,
+    "creationTimestamp": "2026-06-16T22:16:39Z",
+    "labels": {
+      "grafana.app/deprecatedInternalID": "4359850636210176"
+    },
+    "annotations": {
+      "grafana.app/createdBy": "user:bfof6o2xknx8ge",
+      "grafana.app/folder": "",
+      "grafana.app/saved-from-ui": "Grafana v13.0.2 (3fcdbc5a)"
+    }
+  },
+  "spec": {
+    "annotations": [
+      {
+        "kind": "AnnotationQuery",
+        "spec": {
+          "query": {
+            "kind": "DataQuery",
+            "group": "grafana",
+            "version": "v0",
+            "datasource": {
+              "name": "-- Grafana --"
+            },
+            "spec": {}
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "builtIn": true
+        }
+      }
+    ],
+    "cursorSync": "Crosshair",
+    "editable": true,
+    "elements": {
+      "panel-3": {
+        "kind": "Panel",
+        "spec": {
+          "id": 3,
+          "title": "Online Devices Over Time",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "postgres",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_POSTGRESQL}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "format": "time_series",
+                        "rawQuery": true,
+                        "rawSql": "WITH filtered_devices AS (\n  SELECT d.id\n  FROM devices d\n  WHERE d.id::text IN (${devices:sqlstring})\n), initial AS (\n  SELECT COUNT(*)::integer AS online_count\n  FROM filtered_devices fd\n  LEFT JOIN LATERAL (\n    SELECT pe.event_type\n    FROM presence_events pe\n    WHERE pe.device_id = fd.id\n      AND pe.happened_at <= $__timeFrom()\n    ORDER BY pe.happened_at DESC, pe.id DESC\n    LIMIT 1\n  ) last_event ON TRUE\n  WHERE last_event.event_type = 'online'\n), changes AS (\n  SELECT\n    e.happened_at AS time,\n    SUM(CASE WHEN e.event_type = 'online' THEN 1 ELSE -1 END)::integer AS delta\n  FROM presence_events e\n  JOIN filtered_devices fd ON fd.id = e.device_id\n  WHERE $__timeFilter(e.happened_at)\n  GROUP BY e.happened_at\n), points AS (\n  SELECT $__timeFrom()::timestamptz AS time, 0::integer AS delta\n  UNION ALL\n  SELECT time, delta FROM changes\n)\nSELECT\n  time AS \"time\",\n  (SELECT online_count FROM initial)\n    + SUM(delta) OVER (ORDER BY time ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS \"Online devices\"\nFROM points\nORDER BY time;",
+                        "sql": {
+                          "columns": [],
+                          "groupBy": [],
+                          "limit": 50
+                        }
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [
+                    "lastNotNull",
+                    "min",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "red"
+                      },
+                      {
+                        "value": 1,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 12,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "stepAfter",
+                    "lineWidth": 2,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "never",
+                    "showValues": false,
+                    "spanNulls": true,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-4": {
+        "kind": "Panel",
+        "spec": {
+          "id": 4,
+          "title": "Device Presence Timeline",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "postgres",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_POSTGRESQL}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "format": "time_series",
+                        "rawQuery": true,
+                        "rawSql": "WITH named_devices AS (\n  SELECT\n    d.id,\n    COALESCE(NULLIF(d.label, ''), NULLIF(d.hostname, ''), NULLIF(d.vendor, ''), d.mac) AS device_name,\n    d.online AS current_online\n  FROM devices d\n  WHERE d.id::text IN (${devices:sqlstring})\n), start_state AS (\n  SELECT\n    $__timeFrom()::timestamptz AS time,\n    nd.device_name AS metric,\n    CASE\n      WHEN last_event.event_type = 'online' THEN 1\n      WHEN last_event.event_type = 'offline' THEN 0\n      WHEN nd.current_online THEN 1\n      ELSE 0\n    END AS value\n  FROM named_devices nd\n  LEFT JOIN LATERAL (\n    SELECT pe.event_type\n    FROM presence_events pe\n    WHERE pe.device_id = nd.id\n      AND pe.happened_at <= $__timeFrom()\n    ORDER BY pe.happened_at DESC, pe.id DESC\n    LIMIT 1\n  ) last_event ON TRUE\n), range_events AS (\n  SELECT DISTINCT ON (e.device_id, e.happened_at)\n    e.happened_at AS time,\n    nd.device_name AS metric,\n    CASE WHEN e.event_type = 'online' THEN 1 ELSE 0 END AS value\n  FROM presence_events e\n  JOIN named_devices nd ON nd.id = e.device_id\n  WHERE $__timeFilter(e.happened_at)\n  ORDER BY e.device_id, e.happened_at, e.id DESC\n), end_state AS (\n  SELECT\n    $__timeTo()::timestamptz AS time,\n    nd.device_name AS metric,\n    CASE\n      WHEN last_event.event_type = 'online' THEN 1\n      WHEN last_event.event_type = 'offline' THEN 0\n      WHEN nd.current_online THEN 1\n      ELSE 0\n    END AS value\n  FROM named_devices nd\n  LEFT JOIN LATERAL (\n    SELECT pe.event_type\n    FROM presence_events pe\n    WHERE pe.device_id = nd.id\n      AND pe.happened_at <= $__timeTo()\n    ORDER BY pe.happened_at DESC, pe.id DESC\n    LIMIT 1\n  ) last_event ON TRUE\n)\nSELECT time AS \"time\", metric, value\nFROM start_state\nUNION ALL\nSELECT time AS \"time\", metric, value\nFROM range_events\nUNION ALL\nSELECT time AS \"time\", metric, value\nFROM end_state\nORDER BY 1, 2;",
+                        "sql": {
+                          "columns": [],
+                          "groupBy": [],
+                          "limit": 50
+                        }
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "state-timeline",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "alignValue": "left",
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": false
+                },
+                "mergeValues": true,
+                "rowHeight": 0.9,
+                "showValue": "never",
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "mappings": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "0": {
+                          "text": "Offline",
+                          "color": "red",
+                          "index": 1
+                        },
+                        "1": {
+                          "text": "Online",
+                          "color": "green",
+                          "index": 0
+                        }
+                      }
+                    }
+                  ],
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": null,
+                        "color": "red"
+                      },
+                      {
+                        "value": 1,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "axisPlacement": "auto",
+                    "fillOpacity": 70,
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineWidth": 0,
+                    "mergeValues": true,
+                    "spanNulls": true
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-5": {
+        "kind": "Panel",
+        "spec": {
+          "id": 5,
+          "title": "Current Devices",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "postgres",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_POSTGRESQL}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT\n  COALESCE(NULLIF(d.label, ''), NULLIF(d.hostname, ''), NULLIF(d.vendor, ''), d.mac) AS device,\n  CASE WHEN d.online THEN 'online' ELSE 'offline' END AS status,\n  d.ip,\n  d.mac,\n  d.vendor,\n  d.last_seen,\n  d.missed_scans\nFROM devices d\nWHERE d.id::text IN (${devices:sqlstring})\nORDER BY d.online DESC, LOWER(COALESCE(NULLIF(d.label, ''), NULLIF(d.hostname, ''), NULLIF(d.vendor, ''), d.mac));",
+                        "sql": {
+                          "columns": [],
+                          "groupBy": [],
+                          "limit": 50
+                        }
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "cellHeight": "sm",
+                "footer": {
+                  "countRows": false,
+                  "fields": "",
+                  "reducer": [
+                    "sum"
+                  ],
+                  "show": false
+                },
+                "showHeader": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "footer": {
+                      "reducers": []
+                    },
+                    "inspect": false
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "status"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "basic",
+                          "type": "color-background"
+                        }
+                      },
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "options": {
+                              "offline": {
+                                "color": "red",
+                                "index": 1,
+                                "text": "offline"
+                              },
+                              "online": {
+                                "color": "green",
+                                "index": 0,
+                                "text": "online"
+                              }
+                            },
+                            "type": "value"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "panel-6": {
+        "kind": "Panel",
+        "spec": {
+          "id": 6,
+          "title": "Recent Transitions",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "postgres",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_POSTGRESQL}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT\n  e.happened_at AS time,\n  COALESCE(NULLIF(d.label, ''), NULLIF(d.hostname, ''), NULLIF(d.vendor, ''), d.mac) AS device,\n  e.event_type AS state,\n  d.ip,\n  d.mac\nFROM presence_events e\nJOIN devices d ON d.id = e.device_id\nWHERE $__timeFilter(e.happened_at)\n  AND d.id::text IN (${devices:sqlstring})\nORDER BY e.happened_at DESC, e.id DESC\nLIMIT 100;",
+                        "sql": {
+                          "columns": [],
+                          "groupBy": [],
+                          "limit": 50
+                        }
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "version": "13.0.2",
+            "spec": {
+              "options": {
+                "cellHeight": "sm",
+                "footer": {
+                  "countRows": false,
+                  "fields": "",
+                  "reducer": [
+                    "sum"
+                  ],
+                  "show": false
+                },
+                "showHeader": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "footer": {
+                      "reducers": []
+                    },
+                    "inspect": false
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "GridLayout",
+      "spec": {
+        "items": [
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 9,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-3"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 9,
+              "width": 24,
+              "height": 10,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-4"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 19,
+              "width": 14,
+              "height": 9,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-5"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 14,
+              "y": 19,
+              "width": 10,
+              "height": 9,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-6"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "links": [],
+    "liveNow": false,
+    "preload": false,
+    "tags": [
+      "device-monitoring",
+      "presence"
+    ],
+    "timeSettings": {
+      "timezone": "browser",
+      "from": "now-24h",
+      "to": "now",
+      "autoRefresh": "1m",
+      "autoRefreshIntervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "1d"
+      ],
+      "hideTimepicker": false,
+      "fiscalYearStartMonth": 0
+    },
+    "title": "Device Presence",
+    "variables": [
+      {
+        "kind": "DatasourceVariable",
+        "spec": {
+          "name": "DS_POSTGRESQL",
+          "pluginId": "postgres",
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "options": [],
+          "multi": false,
+          "includeAll": false,
+          "label": "PostgreSQL datasource",
+          "hide": "dontHide",
+          "skipUrlSync": false,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "devices",
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "label": "Devices",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "postgres",
+            "version": "v0",
+            "datasource": {
+              "name": "${DS_POSTGRESQL}"
+            },
+            "spec": {
+              "__legacyStringValue": "SELECT id::text AS __value, COALESCE(NULLIF(label, ''), NULLIF(hostname, ''), NULLIF(vendor, ''), mac) AS __text FROM devices ORDER BY LOWER(COALESCE(NULLIF(label, ''), NULLIF(hostname, ''), NULLIF(vendor, ''), mac));"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalAsc",
+          "definition": "SELECT id::text AS __value, COALESCE(NULLIF(label, ''), NULLIF(hostname, ''), NULLIF(vendor, ''), mac) AS __text FROM devices ORDER BY LOWER(COALESCE(NULLIF(label, ''), NULLIF(hostname, ''), NULLIF(vendor, ''), mac));",
+          "options": [],
+          "multi": true,
+          "includeAll": true,
+          "allowCustomValue": true
+        }
+      }
+    ]
+  }
+}
