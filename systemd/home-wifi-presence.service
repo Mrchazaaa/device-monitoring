@@ -1,5 +1,5 @@
 [Unit]
-Description=Home Wi-Fi Presence Dashboard
+Description=Home Wi-Fi Presence Service
 After=network-online.target
 Wants=network-online.target
 # Uncomment when DATABASE_URL points to a separately mounted drive.

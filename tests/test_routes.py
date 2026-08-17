@@ -8,24 +8,6 @@ async def noop_stop():
     return None
 
 
-def test_dashboard_and_label_update(tmp_path, monkeypatch):
-    test_store = store.__class__(tmp_path / "presence.db")
-    test_store.record_scan([ScanDevice(mac="aa:bb:cc:dd:ee:ff", ip="192.168.1.44", hostname="raspberrypi2.mynet")], 2)
-    monkeypatch.setattr("app.main.store", test_store)
-    monkeypatch.setattr(scanner_service, "start", lambda: None)
-    monkeypatch.setattr(scanner_service, "stop", noop_stop)
-
-    with TestClient(app) as client:
-        response = client.get("/")
-        assert response.status_code == 200
-        assert "aa:bb:cc:dd:ee:ff" in response.text
-        assert 'id="refresh-dashboard"' in response.text
-
-        response = client.post("/devices/aa:bb:cc:dd:ee:ff/label", data={"label": "Laptop"})
-        assert response.status_code == 200
-        assert "Laptop" in response.text
-        assert "Machine: raspberrypi2.mynet" in response.text
-
 
 def test_scan_api_runs_scanner(monkeypatch):
     called = False

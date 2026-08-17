@@ -4,10 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import timedelta
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI, HTTPException, Query
 
 from app.config import Settings
 from app.db import PresenceStore, utc_now
@@ -25,7 +22,6 @@ scanner_service = ScannerService(
     offline_after_missed_scans=settings.offline_after_missed_scans,
 )
 
-templates = Jinja2Templates(directory="app/templates")
 
 
 @asynccontextmanager
@@ -47,19 +43,6 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Home Wi-Fi Presence", lifespan=lifespan)
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
-
-@app.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    return templates.TemplateResponse(
-        request,
-        "dashboard.html",
-        {
-            "devices": store.list_devices(),
-            "activity": store.recent_activity(),
-        },
-    )
 
 
 @app.post("/api/scan")
@@ -104,9 +87,3 @@ async def api_activity():
             for event in store.recent_activity()
         ]
     }
-
-
-@app.post("/devices/{mac}/label")
-async def update_label(mac: str, label: str = Form(default="")):
-    store.update_label(mac, label)
-    return RedirectResponse("/", status_code=303)

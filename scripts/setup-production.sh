@@ -104,7 +104,7 @@ trap 'rm -f "$unit_file"' EXIT
 
 cat >"$unit_file" <<EOF_UNIT
 [Unit]
-Description=Home Wi-Fi Presence Dashboard
+Description=Home Wi-Fi Presence Service
 After=network-online.target
 Wants=network-online.target
 

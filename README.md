@@ -2,7 +2,7 @@
 
 [![Tests](https://github.com/mrchazaaa/device-monitoring/actions/workflows/tests.yml/badge.svg)](https://github.com/mrchazaaa/device-monitoring/actions/workflows/tests.yml)
 
-A small Raspberry Pi service that scans your home LAN with `arp-scan`, stores device presence in SQLite, and exposes a local dashboard.
+A small Raspberry Pi service that scans your home LAN with `arp-scan`, stores device presence in SQLite, and exposes JSON APIs.
 
 ## Quick Start
 
@@ -27,7 +27,7 @@ cp .env.example .env
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Open `http://<raspberry-pi-ip>:8000`.
+The service exposes its API at `http://<raspberry-pi-ip>:8000/docs`.
 
 Do not expose this app directly to the internet. The first version is intended for trusted LAN access and does not include login.
 
